@@ -26,11 +26,9 @@ export async function fetchRestaurantsFromOSM(
   lng: number,
   radius: number
 ): Promise<Restaurant[]> {
-  const query = `
-    [out:json][timeout:10];
-    node["amenity"="restaurant"](around:${radius},${lat},${lng});
-    out body;
-  `
+  const query = `[out:json][timeout:10];
+node["amenity"="restaurant"](around:${radius},${lat},${lng});
+out body;`
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10000)
@@ -39,15 +37,22 @@ export async function fetchRestaurantsFromOSM(
   try {
     res = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
-      body: query,
-      headers: { 'Content-Type': 'text/plain' },
+      body: `data=${encodeURIComponent(query)}`,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        'User-Agent': 'Opla/0.1 (https://opla.app)',
+      },
       signal: controller.signal,
     })
   } finally {
     clearTimeout(timeout)
   }
 
-  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`)
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`Overpass HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`)
+  }
 
   const json = await res.json()
   const nodes: OSMNode[] = json.elements ?? []
