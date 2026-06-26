@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { PostHogProvider } from '@/components/PostHogProvider'
+import { PostHogProvider } from "@/components/PostHogProvider";
 import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#FEFDFE",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -31,19 +31,9 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body
-        style={{
-          fontFamily:
-            '-apple-system, "SF Pro Display", "SF Pro Rounded", BlinkMacSystemFont, "Segoe UI", sans-serif',
-          backgroundColor: "#FEFDFE",
-          color: "#1A1A1A",
-          margin: 0,
-          padding: 0,
-          minHeight: "100dvh",
-        }}
-      >
+      <body>
         <PostHogProvider>
-          <main style={{ paddingBottom: "96px" }}>{children}</main>
+          <main style={{ paddingBottom: "var(--nav-height)" }}>{children}</main>
           <BottomNav />
         </PostHogProvider>
       </body>

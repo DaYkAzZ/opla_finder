@@ -1,26 +1,25 @@
-'use client'
+"use client";
 
-import type { Restaurant } from '@/types/restaurant'
-import { trackEvent } from '@/lib/analytics'
-import ReasonBadge from './ReasonBadge'
-import MapButton from './MapButton'
+import type { Restaurant } from "@/types/restaurant";
+import { trackEvent } from "@/lib/analytics";
+import { formatDistance } from "@/lib/restaurants";
+import ReasonBadge from "./ReasonBadge";
+import MapButton from "./MapButton";
 
 interface Props {
-  restaurants: Restaurant[]
-  anonymousId: string
+  restaurants: Restaurant[];
+  anonymousId: string;
 }
 
 export default function TopFive({ restaurants, anonymousId }: Props) {
   if (restaurants.length === 0) {
     return (
-      <p style={{ fontSize: '14px', color: '#ABABAB' }}>
-        Pas d&apos;autres restaurants à proximité.
-      </p>
-    )
+      <p className="empty-text">Pas d&apos;autres restaurants à proximité.</p>
+    );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div className="card-list">
       {restaurants.map((restaurant, index) => (
         <RestaurantRow
           key={restaurant.id}
@@ -30,7 +29,7 @@ export default function TopFive({ restaurants, anonymousId }: Props) {
         />
       ))}
     </div>
-  )
+  );
 }
 
 function RestaurantRow({
@@ -38,70 +37,32 @@ function RestaurantRow({
   position,
   anonymousId,
 }: {
-  restaurant: Restaurant
-  position: number
-  anonymousId: string
+  restaurant: Restaurant;
+  position: number;
+  anonymousId: string;
 }) {
   function handleClick() {
-    trackEvent('top5_clicked', {
+    trackEvent("top5_clicked", {
       restaurant_id: restaurant.id,
       position,
       reason: restaurant.reason,
       anonymous_id: anonymousId,
-    })
+    });
   }
 
-  const distanceLabel =
-    restaurant.distance_meters < 1000
-      ? `${Math.round(restaurant.distance_meters)} m`
-      : `${(restaurant.distance_meters / 1000).toFixed(1)} km`
-
   return (
-    <div
-      onClick={handleClick}
-      style={{
-        backgroundColor: '#F7F6F7',
-        borderRadius: '16px',
-        padding: '14px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '12px',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
-        {/* Rang */}
-        <span
-          style={{
-            fontSize: '13px',
-            fontWeight: 700,
-            color: '#ABABAB',
-            minWidth: '18px',
-          }}
-        >
-          {position}
-        </span>
+    <div className="card-row" onClick={handleClick}>
+      <div className="card-row__content">
+        <span className="card-row__rank">{position}</span>
 
-        {/* Infos */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: '15px',
-              fontWeight: 600,
-              color: '#1A1A1A',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {restaurant.name}
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-            <span style={{ fontSize: '12px', color: '#ABABAB' }}>{distanceLabel}</span>
+          <p className="card-row__name">{restaurant.name}</p>
+          <div className="card-row__meta">
+            <span className="card-row__distance">
+              {formatDistance(restaurant.distance_meters)}
+            </span>
             {restaurant.rating !== null && (
-              <span style={{ fontSize: '12px', color: '#8AD384', fontWeight: 600 }}>
+              <span className="card-row__rating">
                 ★ {restaurant.rating.toFixed(1)}
               </span>
             )}
@@ -110,7 +71,7 @@ function RestaurantRow({
         </div>
       </div>
 
-      <MapButton restaurant={restaurant} small />
+      <MapButton restaurant={restaurant} small arrow />
     </div>
-  )
+  );
 }
