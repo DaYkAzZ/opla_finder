@@ -15,7 +15,9 @@ export async function getCachedRestaurants(geohash: string): Promise<ApiResponse
     .limit(1)
     .single()
 
-  if (error || !data) return null
+  // PGRST116 = "no rows found" → pas une vraie erreur
+  if (error?.code === 'PGRST116' || !data) return null
+  if (error) throw error
 
   return data.data as ApiResponse
 }
@@ -26,9 +28,11 @@ export async function setCachedRestaurants(
 ): Promise<void> {
   const supabase = getSupabaseServer()
 
-  await supabase.from('restaurants_cache').insert({
+  const { error } = await supabase.from('restaurants_cache').insert({
     geohash,
     data: response,
     fetched_at: new Date().toISOString(),
   })
+
+  if (error) throw error
 }

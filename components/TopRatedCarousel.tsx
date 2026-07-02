@@ -11,12 +11,39 @@ const REASON_LABELS: Record<RecommendationReason, string> = {
   never_tried: "Nouveau",
 };
 
-const REASON_COPY: Record<Restaurant["reason"], string> = {
+const REASON_COPY: Record<RecommendationReason, string> = {
   closest: "Le plus proche de toi, idéal pour manger vite.",
   top_rated: "Très bien noté par la communauté.",
   well_referenced: "Un établissement bien référencé dans le quartier.",
   weather_match: "Adapté aux conditions du moment.",
   never_tried: "Une adresse à découvrir près de chez toi.",
+};
+
+const VENUE_LABELS: Record<string, string> = {
+  restaurant: "Restaurant",
+  bar: "Bar",
+  cafe: "Café",
+  fast_food: "Fast-food",
+  bistro: "Bistro",
+  brasserie: "Brasserie",
+};
+
+const CUISINE_LABELS: Record<string, string> = {
+  french: "Français",
+  italian: "Italien",
+  japanese: "Japonais",
+  sushi: "Sushi",
+  burger: "Burger",
+  pizza: "Pizza",
+  chinese: "Chinois",
+  thai: "Thaï",
+  indian: "Indien",
+  mexican: "Mexicain",
+  mediterranean: "Méditerranéen",
+  vietnamese: "Vietnamien",
+  kebab: "Kebab",
+  vegan: "Végétalien",
+  seafood: "Fruits de mer",
 };
 
 const MEDIA_CLASSES = [
@@ -38,11 +65,51 @@ function mediaClass(id: string): string {
   return MEDIA_CLASSES[hash];
 }
 
-function formatTags(restaurant: Restaurant): string {
-  const parts: string[] = [];
-  if (restaurant.cuisine) parts.push(restaurant.cuisine.replace(/_/g, " "));
-  parts.push(formatDistance(restaurant.distance_meters));
-  return parts.join(" · ");
+// Génère les tags affichés sous le nom
+function buildTags(restaurant: Restaurant): string[] {
+  const tags: string[] = [];
+
+  // Type de lieu
+  if (restaurant.venue_type && VENUE_LABELS[restaurant.venue_type]) {
+    tags.push(VENUE_LABELS[restaurant.venue_type]);
+  }
+
+  // Cuisines (OSM peut avoir plusieurs valeurs séparées par ";")
+  if (restaurant.cuisine) {
+    const cuisines = restaurant.cuisine
+      .split(";")
+      .map((c) => c.trim())
+      .slice(0, 2) // max 2
+      .map((c) => CUISINE_LABELS[c] ?? c.replace(/_/g, " "))
+      .filter(Boolean);
+    tags.push(...cuisines);
+  }
+
+  return tags;
+}
+
+interface TagPillProps {
+  label: string;
+}
+
+function TagPill({ label }: TagPillProps) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "3px 9px",
+        borderRadius: "999px",
+        background: "var(--color-accent-soft)",
+        color: "var(--color-accent-text)",
+        fontSize: "11px",
+        fontWeight: 600,
+        whiteSpace: "nowrap",
+        textTransform: "capitalize",
+      }}
+    >
+      {label}
+    </span>
+  );
 }
 
 interface CardProps {
@@ -59,6 +126,7 @@ export function RestaurantCard({
   action,
 }: CardProps) {
   const walkLabel = `${walkMinutes(restaurant.distance_meters)} min`;
+  const tags = buildTags(restaurant);
 
   return (
     <article
@@ -90,13 +158,28 @@ export function RestaurantCard({
               />
             </svg>
           </span>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <h3 className="restaurant-card__name">{restaurant.name}</h3>
-            <p className="restaurant-card__tags">{formatTags(restaurant)}</p>
+
+            {/* Tags cuisine + type */}
+            {tags.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "4px",
+                  marginTop: "5px",
+                }}
+              >
+                {tags.map((t) => (
+                  <TagPill key={t} label={t} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        <p className="restaurant-card__reason">
+        <p className="restaurant-card__reason" style={{ marginTop: "10px" }}>
           {REASON_COPY[restaurant.reason]}
         </p>
 
@@ -124,9 +207,7 @@ export function RestaurantCard({
               </svg>
             </span>
             <span className="restaurant-card__stat-value">
-              {restaurant.rating !== null
-                ? restaurant.rating.toFixed(1)
-                : "—"}
+              {restaurant.rating !== null ? restaurant.rating.toFixed(1) : "—"}
             </span>
             <span className="restaurant-card__stat-label">
               {restaurant.rating_count !== null
@@ -139,10 +220,8 @@ export function RestaurantCard({
             <span className="restaurant-card__stat-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path
-                  d="M12 2C12 2 6 8 6 13C6 16.3 8.7 19 12 19C15.3 19 18 16.3 18 13C18 8 12 2 12 2Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
+                  d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"
+                  fill="currentColor"
                 />
               </svg>
             </span>

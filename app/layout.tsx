@@ -1,30 +1,31 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
-import { PostHogProvider } from "@/components/PostHogProvider";
-import BottomNav from "@/components/BottomNav";
+import type { Metadata, Viewport } from 'next'
+import './globals.css'
+import { PostHogProvider } from '@/components/PostHogProvider'
+import AuthGuard from '@/components/AuthGuard'
+import NavWrapper from '@/components/NavWrapper'
 
 export const metadata: Metadata = {
-  title: "Opla",
-  description: "Trouve où manger en moins de 10 secondes.",
-  manifest: "/manifest.json",
+  title: 'Opla',
+  description: 'Trouve où manger en moins de 10 secondes.',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Opla",
+    statusBarStyle: 'default',
+    title: 'Opla',
   },
-};
+}
 
 export const viewport: Viewport = {
-  themeColor: "#FEFDFE",
-  width: "device-width",
+  themeColor: '#FEFDFE',
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-};
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
     <html lang="fr">
@@ -33,10 +34,11 @@ export default function RootLayout({
       </head>
       <body>
         <PostHogProvider>
-          <main style={{ paddingBottom: "var(--nav-height)" }}>{children}</main>
-          <BottomNav />
+          <AuthGuard>
+            <NavWrapper>{children}</NavWrapper>
+          </AuthGuard>
         </PostHogProvider>
       </body>
     </html>
-  );
+  )
 }

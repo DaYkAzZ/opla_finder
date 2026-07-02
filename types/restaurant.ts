@@ -4,7 +4,8 @@ export type Restaurant = {
   lat: number
   lng: number
   address: string
-  cuisine: string | null
+  cuisine: string | null        // ex: "italian", "french;japanese"
+  venue_type: string | null     // ex: "restaurant", "bar", "cafe"
   opening_hours: string | null
   phone: string | null
   website: string | null
