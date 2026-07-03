@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PostHogProvider } from "@/components/PostHogProvider";
-import BottomNav from "@/components/BottomNav";
+import AuthGuard from "@/components/AuthGuard";
+import NavWrapper from "@/components/NavWrapper";
+import { RestaurantsProvider } from "@/components/RestaurantsProvider";
 
 export const metadata: Metadata = {
   title: "Opla",
@@ -33,8 +35,11 @@ export default function RootLayout({
       </head>
       <body>
         <PostHogProvider>
-          <main style={{ paddingBottom: "var(--nav-height)" }}>{children}</main>
-          <BottomNav />
+          <AuthGuard>
+            <RestaurantsProvider>
+              <NavWrapper>{children}</NavWrapper>
+            </RestaurantsProvider>
+          </AuthGuard>
         </PostHogProvider>
       </body>
     </html>

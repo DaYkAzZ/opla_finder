@@ -1,99 +1,135 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCachedRestaurants, setCachedRestaurants } from '@/lib/cache'
-import { fetchRestaurantsFromOSM } from '@/lib/overpass'
-import { enrichWithTripAdvisor } from '@/lib/tripadvisor'
-import { scoreAndSort } from '@/lib/scoring'
-import { encodeGeohash } from '@/lib/geohash'
-import type { ApiResponse } from '@/types/restaurant'
+import { NextRequest, NextResponse } from "next/server";
+import { getCachedRestaurants, setCachedRestaurants } from "@/lib/cache";
+import { fetchRestaurantsFromOSM } from "@/lib/overpass";
+import { enrichWithTripAdvisor } from "@/lib/tripadvisor";
+import { enrichWithGoogleImages } from "@/lib/googleMaps";
+import { buildCuratedSelection } from "@/lib/scoring";
+import { encodeGeohash } from "@/lib/geohash";
+import type { ApiResponse } from "@/types/restaurant";
+import type { CuisineTag, VenueType, PriceLevel } from "@/types/profile";
 
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
+  const { searchParams } = new URL(request.url);
 
-  const latParam = searchParams.get('lat')
-  const lngParam = searchParams.get('lng')
-  const radiusParam = searchParams.get('radius')
+  const latParam = searchParams.get("lat");
+  const lngParam = searchParams.get("lng");
+  const radiusParam = searchParams.get("radius");
+  const cuisinesParam = searchParams.get("cuisines");
+  const venueTypesParam = searchParams.get("venue_types");
+  const priceLevelsParam = searchParams.get("price_levels");
 
   if (!latParam || !lngParam) {
     return NextResponse.json(
-      { error: 'Paramètres lat et lng requis.' },
-      { status: 400 }
-    )
+      { error: "Paramètres lat et lng requis." },
+      { status: 400 },
+    );
   }
 
-  const lat = parseFloat(latParam)
-  const lng = parseFloat(lngParam)
-  const radius = radiusParam ? parseInt(radiusParam, 10) : 1000
+  const lat = parseFloat(latParam);
+  const lng = parseFloat(lngParam);
+  const radius = radiusParam ? parseInt(radiusParam, 10) : 1000;
 
   if (isNaN(lat) || isNaN(lng)) {
     return NextResponse.json(
-      { error: 'lat et lng doivent être des nombres valides.' },
-      { status: 400 }
-    )
+      { error: "lat et lng invalides." },
+      { status: 400 },
+    );
   }
 
-  const geohash = encodeGeohash(lat, lng, 5)
+  const prefs = {
+    cuisines: cuisinesParam ? (cuisinesParam.split(",") as CuisineTag[]) : [],
+    venue_types: venueTypesParam
+      ? (venueTypesParam.split(",") as VenueType[])
+      : [],
+    price_levels: priceLevelsParam
+      ? (priceLevelsParam.split(",").map(Number) as PriceLevel[])
+      : [],
+  };
 
-  /* ── 1. Cache Supabase ─────────────────────────────────────── */
+  const hasPrefs = prefs.cuisines.length > 0 || prefs.venue_types.length > 0;
+
+  const geohash = encodeGeohash(lat, lng, 5);
+  const cacheKey = hasPrefs
+    ? `${geohash}:${cuisinesParam ?? ""}:${venueTypesParam ?? ""}`
+    : geohash;
+
+  /* ── 1. Cache (non-bloquant) ───────────────────────────────── */
   try {
-    const cached = await getCachedRestaurants(geohash)
+    const cached = await getCachedRestaurants(cacheKey);
     if (cached) {
-      return NextResponse.json({ ...cached, fromCache: true })
+      return NextResponse.json({ ...cached, fromCache: true });
     }
   } catch (err) {
-    console.error('[cache] Erreur lecture:', err)
+    // Cache indisponible (Supabase non configuré ou erreur réseau) → on continue
+    console.warn("[cache] Lecture ignorée:", (err as Error).message);
   }
 
-  /* ── 2. Overpass (OSM) ─────────────────────────────────────── */
-  let osmRestaurants
+  /* ── 2. Overpass ───────────────────────────────────────────── */
+  let osmRestaurants;
   try {
-    osmRestaurants = await fetchRestaurantsFromOSM(lat, lng, radius)
+    osmRestaurants = await fetchRestaurantsFromOSM(lat, lng, radius);
   } catch (err) {
-    console.error('[overpass] Erreur:', err)
+    const msg = (err as Error).message;
+    console.error("[overpass] Erreur:", msg);
     return NextResponse.json(
-      { error: 'Impossible de récupérer les restaurants (timeout OSM).' },
-      { status: 502 }
-    )
+      {
+        error: `Impossible de récupérer les restaurants (OSM). Détail: ${msg}`,
+      },
+      { status: 502 },
+    );
   }
 
   if (!osmRestaurants || osmRestaurants.length === 0) {
     return NextResponse.json(
-      { error: 'Aucun restaurant trouvé dans ce périmètre.' },
-      { status: 404 }
-    )
+      { error: "Aucun restaurant trouvé dans ce périmètre." },
+      { status: 404 },
+    );
   }
 
-  /* ── 3. Enrichissement TripAdvisor ─────────────────────────── */
-  let enrichedRestaurants
+  /* ── 3. TripAdvisor (non-bloquant) ─────────────────────────── */
+  let enrichedRestaurants;
   try {
-    enrichedRestaurants = await enrichWithTripAdvisor(osmRestaurants)
+    enrichedRestaurants = await enrichWithTripAdvisor(osmRestaurants);
   } catch (err) {
-    console.error('[tripadvisor] Erreur globale, fallback sans notes:', err)
-    enrichedRestaurants = osmRestaurants
+    console.warn("[tripadvisor] Fallback sans notes:", (err as Error).message);
+    enrichedRestaurants = osmRestaurants;
   }
 
-  /* ── 4. Scoring serveur ────────────────────────────────────── */
-  const scored = scoreAndSort(enrichedRestaurants)
+  try {
+    enrichedRestaurants = await enrichWithGoogleImages(enrichedRestaurants);
+  } catch (err) {
+    console.warn("[googlemaps] Pas d’images ajoutées:", (err as Error).message);
+  }
 
-  if (scored.length === 0) {
-    return NextResponse.json({ error: 'Aucun restaurant scoré.' }, { status: 404 })
+  /* ── 4. Scoring ────────────────────────────────────────────── */
+  const curatedSelection = buildCuratedSelection(
+    enrichedRestaurants,
+    hasPrefs ? prefs : undefined,
+  );
+
+  if (curatedSelection.length === 0) {
+    return NextResponse.json(
+      { error: "Aucun restaurant scoré." },
+      { status: 404 },
+    );
   }
 
   const response: ApiResponse = {
-    todaysPick: scored[0],
-    topFive: scored.slice(1, 6),
+    todaysPick: curatedSelection[0],
+    topFive: curatedSelection.slice(1, 6),
     fetchedAt: new Date().toISOString(),
     fromCache: false,
-  }
+  };
 
-  /* ── 5. Save cache ─────────────────────────────────────────── */
+  /* ── 5. Cache write (non-bloquant) ─────────────────────────── */
   try {
-    await setCachedRestaurants(geohash, response)
+    await setCachedRestaurants(cacheKey, response);
   } catch (err) {
-    console.error('[cache] Erreur écriture:', err)
+    console.warn("[cache] Écriture ignorée:", (err as Error).message);
   }
 
-  return NextResponse.json(response)
+  return NextResponse.json(response);
 }

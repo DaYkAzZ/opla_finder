@@ -6,14 +6,20 @@ export function getSupabaseServer() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
-    throw new Error('Variables Supabase manquantes (NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY)')
+    throw new Error(
+      'Variables Supabase manquantes (NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY)'
+    )
   }
 
   return createClient(url, key)
 }
 
-// Client côté navigateur (Anon Key)
+// Singleton côté navigateur (Anon Key + Auth)
+let browserClient: ReturnType<typeof createClient> | null = null
+
 export function getSupabaseClient() {
+  if (browserClient) return browserClient
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -21,5 +27,12 @@ export function getSupabaseClient() {
     throw new Error('Variables Supabase manquantes côté client')
   }
 
-  return createClient(url, key)
+  browserClient = createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  })
+
+  return browserClient
 }
