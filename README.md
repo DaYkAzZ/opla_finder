@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Opla
 
-## Getting Started
+Opla est une Progressive Web App Next.js qui aide l’utilisateur à choisir rapidement un restaurant à proximité. L’application combine la géolocalisation, les données OpenStreetMap et une sélection personnalisée basée sur les préférences d’onboarding pour proposer un restaurant principal et un top 5 adapté.
 
-First, run the development server:
+## Fonctionnalités
+
+- Onboarding avec sélection de préférences : cuisines, types de lieu, niveaux de prix et distance.
+- Recherche de restaurants OSM via Overpass et enrichissement des données avec TripAdvisor.
+- Matching des résultats aux préférences utilisateur.
+- Top 5 composé de :
+  - 3 restaurants en accord avec les critères,
+  - 1 restaurant bien noté hors critères,
+  - 1 restaurant découverte.
+- Affichage d’images de restaurant via Google Places si une clé API est configurée.
+- Caching Supabase optionnel pour réduire les appels externes.
+
+## Structure du projet
+
+- `app/` : pages et routes Next.js App Router.
+- `app/api/restaurants/route.ts` : API route principale pour récupérer les restaurants.
+- `components/` : UI composables comme `RestaurantCard`, `TopFive`, `TodaysPick`, `LocationGate`.
+- `hooks/` : hooks React (`useRestaurants`, `useGeolocation`, `useAnonymousId`, etc.).
+- `lib/` : logique métier, clients Overpass, TripAdvisor, Google Maps, scoring et cache.
+- `types/` : types TypeScript partagés.
+
+## Installation
+
+```bash
+npm install
+```
+
+## Exécution en développement
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrez ensuite `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Exécuter les tests :
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+- Exécuter les tests en watch :
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run test:watch
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Générer le coverage :
 
-## Deploy on Vercel
+```bash
+npm run test:coverage
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Variables d’environnement
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Créez un fichier `.env.local` à la racine et ajoutez :
+
+```dotenv
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# PostHog
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+> `TRIPADVISOR_API_KEY` et `SUPABASE_SERVICE_ROLE_KEY` ne doivent jamais être exposés côté client.
+
+## Bonnes pratiques
+
+- Ne lancez pas `useRestaurants` automatiquement sans permission de localisation.
+- Privilégiez le cache Supabase pour réduire les appels à Overpass et TripAdvisor.
+- Pour obtenir des images, configurez `GOOGLE_MAPS_API_KEY` et `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
+
+## Déploiement
+
+Ce projet est conçu pour être déployé facilement sur Vercel avec Next.js.
+
+## Remarques
+
+- L’app fait du fallback si Overpass est indisponible.
+- Le top 5 est construit pour équilibrer pertinence et découverte.
+- Le scoring est calculé côté serveur et renvoie le meilleur restaurant pour `todaysPick`.
